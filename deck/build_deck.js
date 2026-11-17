@@ -73,24 +73,24 @@ async function main() {
       { placeholder: { options: { name: "body", type: "body", x: 0.6, y: 3.2, w: 5.6, h: 1.0, fontSize: 16, color: HEX.accent1, valign: "top", margin: 0 }, text: "" } },
     ],
   });
-  pres.defineSlideMaster({
-    title: "CONTENT",
-    background: { color: HEX.lt1 },
+  // The content and closing masters share a layout and differ only in colour.
+  const contentMaster = (title, background, titleColor, footerColor) => pres.defineSlideMaster({
+    title,
+    background: { color: background },
     objects: [
-      { placeholder: { options: { name: "title", type: "title", x: 0.5, y: 0.3, w: 9.0, h: 0.75, fontSize: 32, bold: true, color: HEX.dk2, valign: "middle", margin: 0 }, text: "" } },
-      { text: { text: FOOTER, options: { x: 0.5, y: 5.2, w: 7.5, h: 0.25, fontSize: 9, color: HEX.accent6, margin: 0 } } },
+      { placeholder: { options: { name: "title", type: "title", x: 0.5, y: 0.3, w: 9.0, h: 0.75, fontSize: 32, bold: true, color: titleColor, valign: "middle", margin: 0 }, text: "" } },
+      { text: { text: FOOTER, options: { x: 0.5, y: 5.2, w: 7.5, h: 0.25, fontSize: 9, color: footerColor, margin: 0 } } },
     ],
-    slideNumber: { x: 9.0, y: 5.2, w: 0.5, h: 0.25, fontSize: 9, color: HEX.accent6, align: "right" },
+    slideNumber: { x: 9.0, y: 5.2, w: 0.5, h: 0.25, fontSize: 9, color: footerColor, align: "right" },
   });
-  pres.defineSlideMaster({
-    title: "CLOSING_DARK",
-    background: { color: HEX.dk2 },
-    objects: [
-      { placeholder: { options: { name: "title", type: "title", x: 0.5, y: 0.3, w: 9.0, h: 0.75, fontSize: 32, bold: true, color: HEX.lt1, valign: "middle", margin: 0 }, text: "" } },
-      { text: { text: FOOTER, options: { x: 0.5, y: 5.2, w: 7.5, h: 0.25, fontSize: 9, color: HEX.lt2, margin: 0 } } },
-    ],
-    slideNumber: { x: 9.0, y: 5.2, w: 0.5, h: 0.25, fontSize: 9, color: HEX.lt2, align: "right" },
-  });
+  contentMaster("CONTENT", HEX.lt1, HEX.dk2, HEX.accent6);
+  contentMaster("CLOSING_DARK", HEX.dk2, HEX.lt1, HEX.lt2);
+
+  // A plain text box: every one in the deck has no margin.
+  const text = (slide, str, x, y, w, h, options) => slide.addText(str, { x, y, w, h, margin: 0, isTextBox: true, ...options });
+
+  const card = (slide, x, y, w, h, color, name) =>
+    slide.addShape(pres.shapes.ROUNDED_RECTANGLE, { x, y, w, h, rectRadius: 0.08, fill: { color }, line: { color }, objectName: name });
 
   // Icon circles are the deck's visual motif.
   const iconCircle = async (slide, Comp, x, y, d, fill, fg, name) => {
@@ -99,12 +99,22 @@ async function main() {
     slide.addImage({ data: await icon(Comp, fg), x: x + pad, y: y + pad, w: d - 2 * pad, h: d - 2 * pad, objectName: name + " icon" });
   };
 
+  // A column of icon rows, each with a heading and a line of detail. rows: [icon, colour, heading, detail].
+  const iconRows = async (slide, x, w, name, rows) => {
+    for (const [i, [Ic, col, head, body]] of rows.entries()) {
+      const y = 1.3 + i * 0.95;
+      await iconCircle(slide, Ic, x, y, 0.6, col, HEX.lt1, `${name} ${i + 1}`);
+      text(slide, head, x + 0.8, y, w, 0.3, { fontSize: 15, bold: true, color: HEX.dk2 });
+      text(slide, body, x + 0.8, y + 0.3, w, 0.55, { fontSize: 12, color: HEX.accent6, valign: "top" });
+    }
+  };
+
   // ---- 1. Title -----------------------------------------------------------
   pres.addSection({ title: "Opening" });
   let s = pres.addSlide({ masterName: "TITLE_DARK", sectionTitle: "Opening" });
   s.addText("HR Portal security review", { placeholder: "title" });
   s.addText("Annual review for the Authorizing Official\nNovember 16, 2026", { placeholder: "body" });
-  s.addText("Sam Okafor, ISSO  ·  fictional example", { x: 0.6, y: 4.6, w: 5.6, h: 0.3, fontSize: 12, color: HEX.lt2, margin: 0, isTextBox: true });
+  text(s, "Sam Okafor, ISSO  ·  fictional example", 0.6, 4.6, 5.6, 0.3, { fontSize: 12, color: HEX.lt2 });
   await iconCircle(s, fa.FaShieldAlt, 6.9, 1.45, 2.4, HEX.accent1, HEX.dk2, "Shield");
   s.addNotes("Fifteen minutes. The goal is three decisions by November 20. Everything else is context for those decisions.");
 
@@ -112,21 +122,19 @@ async function main() {
   pres.addSection({ title: "Findings" });
   s = pres.addSlide({ masterName: "CONTENT", sectionTitle: "Findings" });
   s.addText("The bottom line", { placeholder: "title" });
-  s.addText("The portal is safe to keep running. One risk needs a fast, cheap fix.",
-    { x: 0.5, y: 1.15, w: 9.0, h: 0.45, fontSize: 18, italic: true, color: HEX.dk1, margin: 0, isTextBox: true });
+  text(s, "The portal is safe to keep running. One risk needs a fast, cheap fix.", 0.5, 1.15, 9.0, 0.45, { fontSize: 18, italic: true, color: HEX.dk1 });
   const stats = [
     [String(facts.risks_high), "High risk", `Phished HR account could expose ${facts.employees.toLocaleString("en-US")} employees' records`, fa.FaExclamationTriangle, HEX.accent2],
     ["$" + facts.mfa_cost_usd, "to close it", `Security keys for ${facts.hr_role_users} HR staff, done by ${fmtDate(facts.mfa_due)}`, fa.FaKey, HEX.accent1],
     ["3", "decisions today", "Fund the keys, push the payroll vendor, schedule recovery tests", fa.FaGavel, HEX.dk2],
   ];
-  for (let i = 0; i < stats.length; i++) {
-    const [big, label, detail, Ic, col] = stats[i];
+  for (const [i, [big, label, detail, Ic, col]] of stats.entries()) {
     const x = 0.5 + i * 3.1;
-    s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x, y: 1.85, w: 2.8, h: 3.05, rectRadius: 0.08, fill: { color: HEX.lt2 }, line: { color: HEX.lt2 }, objectName: `Stat card ${i + 1}` });
+    card(s, x, 1.85, 2.8, 3.05, HEX.lt2, `Stat card ${i + 1}`);
     await iconCircle(s, Ic, x + 0.25, 2.1, 0.6, col, HEX.lt1, `Stat ${i + 1}`);
-    s.addText(big, { x: x + 0.25, y: 2.8, w: 2.3, h: 0.9, fontSize: 54, bold: true, fontFace: THEME.headFontFace, color: HEX.dk2, margin: 0, isTextBox: true, objectName: `Stat ${i + 1} number` });
-    s.addText(label, { x: x + 0.25, y: 3.7, w: 2.3, h: 0.35, fontSize: 16, bold: true, color: HEX.dk1, margin: 0, isTextBox: true });
-    s.addText(detail, { x: x + 0.25, y: 4.05, w: 2.3, h: 0.75, fontSize: 12, color: HEX.accent6, margin: 0, valign: "top", isTextBox: true });
+    text(s, big, x + 0.25, 2.8, 2.3, 0.9, { fontSize: 54, bold: true, fontFace: THEME.headFontFace, color: HEX.dk2, objectName: `Stat ${i + 1} number` });
+    text(s, label, x + 0.25, 3.7, 2.3, 0.35, { fontSize: 16, bold: true, color: HEX.dk1 });
+    text(s, detail, x + 0.25, 4.05, 2.3, 0.75, { fontSize: 12, color: HEX.accent6, valign: "top" });
   }
   s.addNotes("If you remember one thing: the portal can keep running, and the biggest risk has a $750 fix.");
 
@@ -139,23 +147,22 @@ async function main() {
     [fa.FaUserSecret, "Attacker is in", "Signed in as an HR specialist"],
     [fa.FaDownload, "Records taken", `${facts.employees.toLocaleString("en-US")} employees' pay and tax data`],
   ];
-  for (let i = 0; i < steps.length; i++) {
-    const [Ic, head, sub] = steps[i];
+  for (const [i, [Ic, head, sub]] of steps.entries()) {
     const x = 0.5 + i * 2.3;
     await iconCircle(s, Ic, x + 0.55, 1.3, 0.9, i === 3 ? HEX.accent2 : HEX.dk2, HEX.lt1, `Step ${i + 1}`);
-    s.addText(head, { x, y: 2.3, w: 2.0, h: 0.35, fontSize: 15, bold: true, align: "center", color: HEX.dk2, margin: 0, isTextBox: true });
-    s.addText(sub, { x, y: 2.65, w: 2.0, h: 0.55, fontSize: 12, align: "center", color: HEX.accent6, margin: 0, valign: "top", isTextBox: true });
+    text(s, head, x, 2.3, 2.0, 0.35, { fontSize: 15, bold: true, align: "center", color: HEX.dk2 });
+    text(s, sub, x, 2.65, 2.0, 0.55, { fontSize: 12, align: "center", color: HEX.accent6, valign: "top" });
     if (i < steps.length - 1) {
       s.addShape(pres.shapes.RIGHT_ARROW, { x: x + 1.75, y: 1.6, w: 0.5, h: 0.3, fill: { color: HEX.accent6 }, line: { color: HEX.accent6 }, objectName: `Arrow ${i + 1}` });
     }
   }
-  s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x: 0.5, y: 3.45, w: 9.0, h: 1.5, rectRadius: 0.08, fill: { color: HEX.lt2 }, line: { color: HEX.lt2 }, objectName: "Fix panel" });
+  card(s, 0.5, 3.45, 9.0, 1.5, HEX.lt2, "Fix panel");
   await iconCircle(s, fa.FaKey, 0.8, 3.75, 0.9, HEX.accent1, HEX.dk2, "Fix");
-  s.addText([
+  text(s, [
     { text: "The fix: ", options: { bold: true, color: HEX.dk2 } },
     { text: `security keys for the ${facts.hr_role_users} HR staff, which ignore fake pages, plus an alert when anyone downloads records in bulk.`, options: { color: HEX.dk1, breakLine: true } },
     { text: `About $${facts.mfa_cost_usd}. Keys ordered by ${fmtDate(facts.mfa_purchase_milestone)}, in use by ${fmtDate(facts.mfa_due)}.`, options: { bold: true, color: HEX.dk2 } },
-  ], { x: 2.0, y: 3.6, w: 7.2, h: 1.2, fontSize: 15, valign: "middle", margin: 0, paraSpaceAfter: 6, isTextBox: true });
+  ], 2.0, 3.6, 7.2, 1.2, { fontSize: 15, valign: "middle", paraSpaceAfter: 6 });
   s.addNotes("Push MFA stops most attacks, but phishing kits that relay the sign-in in real time get through. A security key checks the web address, so it won't answer a fake page. Risk R-01: likelihood High, impact High.");
 
   // ---- 4. Risk picture ----------------------------------------------------
@@ -171,19 +178,12 @@ async function main() {
     valAxisHidden: true, valGridLine: { style: "none" }, catGridLine: { style: "none" }, valAxisMaxVal: 10,
     showLegend: false, showTitle: true, title: "Risks by level", titleFontSize: 14, titleColor: HEX.dk2, titleFontFace: "+mn-lt",
   });
-  const rows = [
+  await iconRows(s, 5.5, 3.2, "Risk row", [
     [fa.FaExclamationTriangle, HEX.accent2, "1 High", `Phishing of HR accounts. Fix by ${fmtDate(facts.mfa_due)}.`],
     [fa.FaTools, HEX.accent1, "4 Moderate, funded", "Old accounts, late updates, public storage risk, insider browsing."],
     [fa.FaHandshake, HEX.accent1, "1 Moderate, shared", "Payroll vendor breach. Handled through the contract."],
     [fa.FaCheckCircle, HEX.accent3, `${facts.risks_low + facts.risks_very_low} Low or Very Low`, "Watched, with no new spending needed."],
-  ];
-  for (let i = 0; i < rows.length; i++) {
-    const [Ic, col, head, body] = rows[i];
-    const y = 1.3 + i * 0.95;
-    await iconCircle(s, Ic, 5.5, y, 0.6, col, HEX.lt1, `Risk row ${i + 1}`);
-    s.addText(head, { x: 6.3, y, w: 3.2, h: 0.3, fontSize: 15, bold: true, color: HEX.dk2, margin: 0, isTextBox: true });
-    s.addText(body, { x: 6.3, y: y + 0.3, w: 3.2, h: 0.55, fontSize: 12, color: HEX.accent6, margin: 0, valign: "top", isTextBox: true });
-  }
+  ]);
   s.addNotes("Scored with the NIST SP 800-30 likelihood and impact tables. The full register, with a heat map, is in the risk-assessment-800-30 repo.");
 
   // ---- 5. Audit -----------------------------------------------------------
@@ -200,19 +200,12 @@ async function main() {
     showLegend: true, legendPos: "b", legendFontSize: 11, legendColor: HEX.dk1, legendFontFace: "+mn-lt",
     showTitle: false,
   });
-  const finds = [
-    [fa.FaUserClock, "Old accounts left on", `${facts.dormant_accounts} found. Turned off. Daily check due Nov 30.`],
-    [fa.FaSyncAlt, "Two updates were late", "Installed Nov 10. A build check will block this."],
-    [fa.FaClipboardList, "Log reviews not recorded", `${facts.log_review_weeks_documented} of ${facts.log_review_weeks_total} weeks. Weekly checklist now.`],
-    [fa.FaLifeRing, "Recovery plan never tested", `Tests set for ${fmtDate(facts.cp_tabletop)} and ${fmtDate(facts.cp_restore_test)}.`],
-  ];
-  for (let i = 0; i < finds.length; i++) {
-    const [Ic, head, body] = finds[i];
-    const y = 1.3 + i * 0.95;
-    await iconCircle(s, Ic, 4.7, y, 0.6, HEX.dk2, HEX.lt1, `Finding ${i + 1}`);
-    s.addText(head, { x: 5.5, y, w: 4.0, h: 0.3, fontSize: 15, bold: true, color: HEX.dk2, margin: 0, isTextBox: true });
-    s.addText(body, { x: 5.5, y: y + 0.3, w: 4.0, h: 0.55, fontSize: 12, color: HEX.accent6, margin: 0, valign: "top", isTextBox: true });
-  }
+  await iconRows(s, 4.7, 4.0, "Finding", [
+    [fa.FaUserClock, HEX.dk2, "Old accounts left on", `${facts.dormant_accounts} found. Turned off. Daily check due Nov 30.`],
+    [fa.FaSyncAlt, HEX.dk2, "Two updates were late", "Installed Nov 10. A build check will block this."],
+    [fa.FaClipboardList, HEX.dk2, "Log reviews not recorded", `${facts.log_review_weeks_documented} of ${facts.log_review_weeks_total} weeks. Weekly checklist now.`],
+    [fa.FaLifeRing, HEX.dk2, "Recovery plan never tested", `Tests set for ${fmtDate(facts.cp_tabletop)} and ${fmtDate(facts.cp_restore_test)}.`],
+  ]);
   s.addNotes("Internal Audit tested a representative 12 controls. The TLS setting was fixed during the audit, so it shows as fixed. The evidence and workpapers are in control-audit-evidence-kit.");
 
   // ---- 6. Fix progress ----------------------------------------------------
@@ -225,12 +218,11 @@ async function main() {
     [String(facts.poam_closed), "closed", HEX.accent3],
     [String(facts.poam_risk_accepted), "risk accepted", HEX.accent6],
   ];
-  for (let i = 0; i < chips.length; i++) {
-    const [n, label, col] = chips[i];
+  for (const [i, [n, label, col]] of chips.entries()) {
     const x = 0.5 + i * 2.3;
-    s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x, y: 1.2, w: 2.1, h: 1.05, rectRadius: 0.08, fill: { color: HEX.lt2 }, line: { color: HEX.lt2 }, objectName: `Chip ${i + 1}` });
-    s.addText(n, { x: x + 0.2, y: 1.28, w: 0.55, h: 0.9, fontSize: 40, bold: true, fontFace: THEME.headFontFace, color: col, margin: 0, valign: "middle", isTextBox: true });
-    s.addText(label, { x: x + 0.8, y: 1.28, w: 1.2, h: 0.9, fontSize: 14, color: HEX.dk1, margin: 0, valign: "middle", isTextBox: true });
+    card(s, x, 1.2, 2.1, 1.05, HEX.lt2, `Chip ${i + 1}`);
+    text(s, n, x + 0.2, 1.28, 0.55, 0.9, { fontSize: 40, bold: true, fontFace: THEME.headFontFace, color: col, valign: "middle" });
+    text(s, label, x + 0.8, 1.28, 1.2, 0.9, { fontSize: 14, color: HEX.dk1, valign: "middle" });
   }
   // Timeline of the next milestones
   const events = [
@@ -248,13 +240,13 @@ async function main() {
   events.forEach(([iso, label, late], i) => {
     const cx = tx0 + i * step;
     s.addShape(pres.shapes.OVAL, { x: cx - 0.12, y: ty - 0.12, w: 0.24, h: 0.24, fill: { color: late ? HEX.accent2 : HEX.accent1 }, line: { color: HEX.lt1, width: 2 }, objectName: `Milestone ${i + 1}` });
-    s.addText(fmtDate(iso), { x: cx - 0.6, y: ty - 0.55, w: 1.2, h: 0.3, fontSize: 12, bold: true, align: "center", color: late ? HEX.accent2 : HEX.dk2, margin: 0, isTextBox: true });
-    s.addText(label, { x: cx - 0.62, y: ty + 0.22, w: 1.24, h: 0.6, fontSize: 11, align: "center", color: HEX.dk1, margin: 0, valign: "top", isTextBox: true });
+    text(s, fmtDate(iso), cx - 0.6, ty - 0.55, 1.2, 0.3, { fontSize: 12, bold: true, align: "center", color: late ? HEX.accent2 : HEX.dk2 });
+    text(s, label, cx - 0.62, ty + 0.22, 1.24, 0.6, { fontSize: 11, align: "center", color: HEX.dk1, valign: "top" });
   });
-  s.addText([
+  text(s, [
     { text: "Late item: ", options: { bold: true, color: HEX.accent2 } },
     { text: `a High-rated patch for the admin server is ${facts.poam_overdue_days} days late. The vendor's fix only came out Nov 9. It will be installed ${fmtDate(facts.poam_overdue_fix_date)}.`, options: { color: HEX.dk1 } },
-  ], { x: 0.5, y: 4.4, w: 9.0, h: 0.6, fontSize: 14, margin: 0, valign: "middle", isTextBox: true });
+  ], 0.5, 4.4, 9.0, 0.6, { fontSize: 14, valign: "middle" });
   s.addNotes(`${facts.poam_overdue_id} is the late item. The full monthly status report is in policy-and-poam-program/reports.`);
 
   // ---- 7. Decisions -------------------------------------------------------
@@ -266,14 +258,13 @@ async function main() {
     [fa.FaHandshake, "Push the payroll vendor", "Ask Procurement for their audit report and a 72-hour breach notice at renewal."],
     [fa.FaCalendarCheck, "Commit HR to recovery tests", `Planning test ${fmtDate(facts.cp_tabletop)}, restore test ${fmtDate(facts.cp_restore_test)}.`],
   ];
-  for (let i = 0; i < asks.length; i++) {
-    const [Ic, head, body] = asks[i];
+  for (const [i, [Ic, head, body]] of asks.entries()) {
     const x = 0.5 + i * 3.1;
-    s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x, y: 1.5, w: 2.8, h: 3.0, rectRadius: 0.08, fill: { color: HEX.lt1 }, line: { color: HEX.lt1 }, objectName: `Decision ${i + 1} card` });
-    s.addText(String(i + 1), { x: x + 0.25, y: 1.65, w: 0.8, h: 0.8, fontSize: 44, bold: true, fontFace: THEME.headFontFace, color: HEX.accent1, margin: 0, isTextBox: true });
+    card(s, x, 1.5, 2.8, 3.0, HEX.lt1, `Decision ${i + 1} card`);
+    text(s, String(i + 1), x + 0.25, 1.65, 0.8, 0.8, { fontSize: 44, bold: true, fontFace: THEME.headFontFace, color: HEX.accent1 });
     await iconCircle(s, Ic, x + 1.9, 1.7, 0.65, HEX.dk2, HEX.accent1, `Decision ${i + 1}`);
-    s.addText(head, { x: x + 0.25, y: 2.6, w: 2.3, h: 0.8, fontSize: 17, bold: true, color: HEX.dk2, margin: 0, valign: "top", isTextBox: true });
-    s.addText(body, { x: x + 0.25, y: 3.45, w: 2.3, h: 0.9, fontSize: 13, color: HEX.dk1, margin: 0, valign: "top", isTextBox: true });
+    text(s, head, x + 0.25, 2.6, 2.3, 0.8, { fontSize: 17, bold: true, color: HEX.dk2, valign: "top" });
+    text(s, body, x + 0.25, 3.45, 2.3, 0.9, { fontSize: 13, color: HEX.dk1, valign: "top" });
   }
   s.addNotes("Ask for a yes or no on each. If the answer on the keys is no, the High risk stays open and needs a written risk acceptance from the CIO under ISP-CA 4.6.");
 
